@@ -11,44 +11,26 @@ class AlamatController extends Controller
     /**
      * Menampilkan semua alamat milik pelanggan
      */
-    public function index(Request $request)
+   public function index(Request $request)
     {
-        $addresses = AlamatPelanggan::where('user_id', $request->user()->id)->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $addresses
-        ], 200);
+        // Menggunakan relasi alamatPelanggans
+        $alamats = $request->user()->alamatPelanggans()->orderBy('created_at', 'desc')->get();
+        return response()->json(['success' => true, 'data' => $alamats]);
     }
 
-    /**
-     * Menyimpan Alamat Baru
-     */
     public function store(Request $request)
     {
-        $request->validate([
-            'label_alamat' => 'required|string|max:255', // Rumah / Kantor / Apartemen
+        $validated = $request->validate([
+            'label_alamat' => 'required|string|max:50',
             'alamat_lengkap' => 'required|string',
-            'catatan_kurir' => 'nullable|string',
+            'catatan_kurir' => 'nullable|string'
         ]);
 
-        // Jika alamat pertama, set sebagai utama otomatis
-        $isFirst = AlamatPelanggan::where('user_id', $request->user()->id)->count() === 0;
+        $alamat = $request->user()->alamatPelanggans()->create($validated);
 
-        $alamat = AlamatPelanggan::create([
-            'user_id' => $request->user()->id,
-            'label_alamat' => $request->label_alamat,
-            'alamat_lengkap' => $request->alamat_lengkap,
-            'catatan_kurir' => $request->catatan_kurir,
-            'is_utama' => $isFirst,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Alamat baru berhasil ditambahkan',
-            'data' => $alamat
-        ], 201);
+        return response()->json(['success' => true, 'message' => 'Alamat ditambahkan', 'data' => $alamat], 201);
     }
+    // (Lakukan hal yang sama untuk fungsi update)
 
     /**
      * Memperbarui Alamat (Aksi tombol "Ubah" di UI)

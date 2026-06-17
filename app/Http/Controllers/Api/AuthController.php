@@ -15,43 +15,30 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
-        // 1. Validasi Input
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'phone' => 'required|string|max:20',
-            'password' => 'required|string|min:8|confirmed', // 'confirmed' berarti harus ada field 'password_confirmation'
+            'email' => 'required|string|email|unique:users',
+            'phone' => 'nullable|string|max:20',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        // 2. Buat User Baru
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
-            'password' => Hash::make($request->password),
-            'role' => 'pelanggan', // Default role untuk register dari aplikasi
-            'poin' => 0,
+            'password' => \Illuminate\Support\Facades\Hash::make($request->password),
+            'role' => 'pelanggan',
+            // Tambahkan nilai default pengaturan notifikasi seperti yang kita bahas sebelumnya
+            'notification_settings' => json_encode(['order_updates' => true, 'vouchers' => true, 'news' => false, 'login_alerts' => true, 'account_activity' => true]),
         ]);
 
-        // 3. Buat Token Sanctum
-        $token = $user->createToken('vivalavida_mobile_token')->plainTextToken;
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-        // 4. Kembalikan Response JSON ke Flutter
         return response()->json([
             'success' => true,
-            'message' => 'Registrasi berhasil',
-            'data' => [
-                'user' => $user,
-                'token' => $token
-            ]
+            'message' => 'Berhasil mendaftar',
+            'token' => $token, // Token ini akan diambil oleh Flutter
+            'user' => $user
         ], 201);
     }
 

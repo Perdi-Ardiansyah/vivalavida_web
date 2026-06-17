@@ -55,6 +55,9 @@ class TransactionController extends Controller
                 'diskon_voucher' => $diskon,
                 'total_akhir' => $totalAkhir,
                 'catatan' => $request->catatan,
+                // --- KODE YANG DITAMBAHKAN ---
+                'metode_pembayaran' => $request->metode_pembayaran,
+                'status_pembayaran' => 'belum_bayar', // Selalu mulai dari belum bayar
             ]);
 
             foreach ($request->items as $item) {
@@ -83,7 +86,6 @@ class TransactionController extends Controller
             if (in_array($request->metode_pembayaran, ['qris', 'gopay'])) {
                 $secretKey = env('XENDIT_SECRET_KEY');
                 
-                // Jika Secret Key kosong, gagalkan pesanan
                 if (empty($secretKey)) {
                     throw new \Exception('Kunci Xendit belum dipasang di file .env Laravel');
                 }
@@ -96,7 +98,6 @@ class TransactionController extends Controller
                     ]);
 
                 if ($response->successful()) {
-                    // Mengambil URL Web Pembayaran dari Xendit untuk digambar jadi QR di Flutter
                     $qrUrl = $response->json('invoice_url'); 
                 } else {
                     throw new \Exception('Xendit Error: ' . $response->body());
@@ -139,8 +140,6 @@ class TransactionController extends Controller
 
         if (!$pesanan) {
             return response()->json([
-
-            
                 'success' => false,
                 'message' => 'Struk tidak ditemukan'
             ], 404);
@@ -180,16 +179,13 @@ class TransactionController extends Controller
                 $data = $response->json();
                 $statusXendit = null;
 
-                // Pengecekan cerdas: Apakah datanya array atau object tunggal?
                 if (isset($data[0]) && isset($data[0]['status'])) {
                     $statusXendit = strtoupper($data[0]['status']);
                 } elseif (isset($data['status'])) {
                     $statusXendit = strtoupper($data['status']);
                 }
 
-                // Jika status berhasil ditemukan di dalam data
                 if ($statusXendit) {
-                    // Kita tambahkan COMPLETED dan SUCCESS untuk jaga-jaga
                     if (in_array($statusXendit, ['PAID', 'SETTLED', 'COMPLETED', 'SUCCESS'])) {
                         if ($pembayaranLokal) {
                             $pembayaranLokal->update([
@@ -197,16 +193,20 @@ class TransactionController extends Controller
                                 'dibayar_at' => now()
                             ]);
                         }
-                        Pesanan::where('id', $pesananId)->update(['status' => 'processing']);
+                        
+                        // --- KODE YANG DIPERBAIKI ---
+                        // Mengupdate status pesanan menjadi preparing DAN status pembayaran menjadi sudah_bayar
+                        Pesanan::where('id', $pesananId)->update([
+                            'status' => 'new', 
+                            'status_pembayaran' => 'sudah_bayar' 
+                        ]);
 
                         return response()->json(['status' => 'paid', 'message' => 'Pembayaran Berhasil!']);
                     }
                     
-                    // Jika Xendit bilang belum lunas, tampilkan status ASLINYA ke layar!
                     return response()->json(['status' => 'unpaid', 'message' => 'Belum Lunas. (Status Xendit: ' . $statusXendit . ')']);
                 }
                 
-                // Jika formatnya benar-benar aneh, cetak isi mentahnya ke layar
                 return response()->json(['status' => 'unpaid', 'message' => 'Data Xendit Aneh: ' . substr(json_encode($data), 0, 100)]);
             }
 
