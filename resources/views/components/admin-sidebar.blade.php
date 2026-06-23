@@ -32,7 +32,12 @@
             </a>
             <a href="{{ route('admin.vouchers') }}"
                 class="flex items-center px-4 py-3 rounded-xl transition {{ $active === 'vouchers' ? 'bg-[#046A41] text-white shadow-sm font-semibold' : 'text-gray-500 hover:bg-gray-50 font-medium' }}">
-                <i class="fa-solid fa-ticket w-5 text-center mr-3"></i> <span class="text-sm">Voucher & Promo</span>
+                <i class="fa-solid fa-ticket w-5 text-center mr-3"></i> <span class="text-sm">Management Voucher</span>
+            </a>
+            <a href="{{ route('admin.promos') }}"
+                class="flex items-center px-4 py-3 rounded-xl transition {{ $active === 'promos' ? 'bg-[#046A41] text-white shadow-sm font-semibold' : 'text-gray-500 hover:bg-gray-50 font-medium' }}">
+                <i class="fa-solid fa-images w-5 text-center mr-3"></i> <span class="text-sm">Management Informasi
+                    Promo</span>
             </a>
             <a href="{{ route('admin.loyalty') }}"
                 class="flex items-center px-4 py-3 rounded-xl transition {{ $active === 'loyalty' ? 'bg-[#046A41] text-white shadow-sm font-semibold' : 'text-gray-500 hover:bg-gray-50 font-medium' }}">
@@ -42,7 +47,12 @@
                 class="flex items-center px-4 py-3 rounded-xl transition {{ $active === 'news' ? 'bg-[#046A41] text-white shadow-sm font-semibold' : 'text-gray-500 hover:bg-gray-50 font-medium' }}">
                 <i class="fa-solid fa-newspaper w-5 text-center mr-3"></i> <span class="text-sm">News & Content</span>
             </a>
-            <a href="#"
+            <a href="{{ route('admin.mejas') }}"
+                class="flex items-center px-4 py-3 rounded-xl transition {{ $active === 'mejas' ? 'bg-[#046A41] text-white shadow-sm font-semibold' : 'text-gray-500 hover:bg-gray-50 font-medium' }}">
+                <i class="fa-solid fa-chair w-5 text-center mr-3"></i> <span class="text-sm">Manajemen Meja</span>
+            </a>
+
+            <!-- <a href="#"
                 class="flex items-center px-4 py-3 rounded-xl transition text-gray-500 hover:bg-gray-50 font-medium">
                 <i class="fa-solid fa-chart-line w-5 text-center mr-3"></i> <span class="text-sm">Reports &
                     Analytics</span>
@@ -50,19 +60,19 @@
             <a href="#"
                 class="flex items-center px-4 py-3 rounded-xl transition text-gray-500 hover:bg-gray-50 font-medium">
                 <i class="fa-solid fa-gear w-5 text-center mr-3"></i> <span class="text-sm">System Settings</span>
-            </a>
+            </a> -->
         </nav>
 
         <div class="p-4 border-t border-gray-100 mt-4 space-y-2">
-            <a href="{{ route('kasir.menu') }}"
+            <!-- <a href="{{ route('kasir.menu') }}"
                 class="flex items-center justify-center w-full px-4 py-3 bg-[#046A41] hover:bg-emerald-800 text-white rounded-xl shadow-md transition font-bold text-sm mb-4">
                 <i class="fa-solid fa-plus mr-2"></i> New Order
-            </a>
+            </a> -->
 
-            <a href="#"
+            <!-- <a href="#"
                 class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-xl transition font-medium">
                 <i class="fa-regular fa-circle-user w-5 text-center mr-3"></i> <span class="text-sm">Profile</span>
-            </a>
+            </a> -->
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit"

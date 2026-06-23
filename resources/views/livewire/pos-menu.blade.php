@@ -83,9 +83,9 @@
 
                 <div class="space-y-4">
                     @forelse($cart as $id => $item)
-                        <div class="flex gap-3">
+                        <div class="flex gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
                             <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-200">
-                                @if($item['gambar'])
+                                @if(isset($item['gambar']) && $item['gambar'])
                                     <img src="{{ asset('storage/' . $item['gambar']) }}" class="w-full h-full object-cover">
                                 @endif
                             </div>
@@ -99,11 +99,16 @@
                                     <p class="text-[10px] text-gray-400 italic">Pajak sudah termasuk dlm total</p>
                                     
                                     <div class="flex items-center border border-gray-200 rounded-md bg-white">
-                                        <button wire:click="decrementQty({{ $id }})" class="px-2.5 py-1 text-gray-500 hover:text-red-500 transition font-bold">-</button>
+                                        <button wire:click="decrementQty('{{ $id }}')" class="px-2.5 py-1 text-gray-500 hover:text-red-500 transition font-bold">-</button>
                                         <span class="px-2 text-xs font-bold text-gray-800">{{ $item['qty'] }}</span>
-                                        <button wire:click="incrementQty({{ $id }})" class="px-2.5 py-1 text-gray-500 hover:text-[#046A41] transition font-bold">+</button>
+                                        <button wire:click="incrementQty('{{ $id }}')" class="px-2.5 py-1 text-gray-500 hover:text-[#046A41] transition font-bold">+</button>
                                     </div>
                                 </div>
+
+                                <div class="mt-2.5">
+                                    <input wire:model.live.debounce.500ms="cart.{{ $id }}.catatan" type="text" class="w-full text-xs border border-gray-200 rounded-md py-1.5 px-2.5 focus:outline-none focus:border-[#046A41] bg-gray-50 focus:bg-white transition-colors" placeholder="Catatan opsional">
+                                </div>
+
                             </div>
                         </div>
                     @empty
@@ -134,7 +139,7 @@
                         <span>Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
                     </div>
                     <div class="flex justify-between text-xs font-medium text-gray-500">
-                        <span>Pajak (11%)</span>
+                        <span>Pajak ({{ $pajakPersen }}%)</span>
                         <span>Rp {{ number_format($pajak, 0, ',', '.') }}</span>
                     </div>
                     @if($diskon > 0)

@@ -47,4 +47,10 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    // Relasi ke tabel notifikasis
+    public function notifikasis()
+    {
+        return $this->hasMany(Notifikasi::class);
+    }
 }

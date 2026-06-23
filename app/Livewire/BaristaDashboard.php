@@ -46,6 +46,21 @@ class BaristaDashboard extends Component
 
         if ($makananSelesai) {
             DB::table('pesanans')->where('id', $id)->update(['status' => 'ready']);
+
+            // --- LOGIKA PEMBUATAN NOTIFIKASI DITAMBAHKAN DI SINI ---
+            // Pastikan pesanan ini dipesan lewat aplikasi (punya user_id)
+            if ($pesanan->user_id != null) {
+                DB::table('notifikasis')->insert([
+                    'user_id'   => $pesanan->user_id,
+                    'tipe'      => 'pesanan', // Tipe untuk menentukan ikon di Flutter
+                    'judul'     => 'Pesanan Sudah Siap! 🎉',
+                    'deskripsi' => 'Pesanan Anda (Order #' . $id . ') telah selesai disiapkan barista. Silakan ambil di konter ya!',
+                    'is_read'   => 0, // Belum dibaca
+                    'created_at'=> now(),
+                    'updated_at'=> now(),
+                ]);
+            }
+            // --------------------------------------------------------
         }
     }
 

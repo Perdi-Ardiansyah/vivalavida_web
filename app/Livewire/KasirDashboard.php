@@ -129,6 +129,7 @@ class KasirDashboard extends Component
             'status' => 'completed',
             'updated_at' => now()
         ]);
+
     }
 
     public function bukaModalStruk($id)

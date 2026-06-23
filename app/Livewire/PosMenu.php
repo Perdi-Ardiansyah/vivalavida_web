@@ -15,7 +15,7 @@ class PosMenu extends Component
     public $tipePesanan = 'dine_in';
     public $diskon = 0;
 
-    // FUNGSI YANG DIPERBAIKI: Hanya butuh ID, sisanya dicari otomatis
+    // FUNGSI YANG DIPERBAIKI: Menambahkan inisialisasi catatan
     public function addToCart($id)
     {
         if (isset($this->cart[$id])) {
@@ -28,7 +28,8 @@ class PosMenu extends Component
                     'nama' => $menu->nama,
                     'harga' => $menu->harga,
                     'qty' => 1,
-                    'gambar' => $menu->gambar
+                    'gambar' => $menu->gambar,
+                    'catatan' => '' // <-- Tambahkan ini agar input kasir tidak error
                 ];
             }
         }
@@ -63,17 +64,24 @@ class PosMenu extends Component
                 return $item['harga'] * $item['qty'];
             });
             
-            $pajak = $subtotal * 0.11;
+            // Mengambil pajak dari tabel pengaturans secara dinamis (Sama seperti Flutter)
+            $pengaturan = DB::table('pengaturans')->first();
+            $taxRate = $pengaturan ? ($pengaturan->pajak_persen / 100) : 0.11;
+
+            $pajak = $subtotal * $taxRate;
             $totalAkhir = $subtotal + $pajak - $this->diskon;
 
-            // Logika baru: user_id bisa NULL untuk guest, sumber_pesanan pasti 'kasir'
             $pesananId = DB::table('pesanans')->insertGetId([
-                'user_id' => null, // Dikosongkan untuk tamu (guest)
+                'user_id' => null, 
                 'nama_pelanggan' => $this->namaPelanggan ?: 'Guest Customer',
                 'tipe_pesanan' => $this->tipePesanan,
-                'sumber_pesanan' => 'kasir', // Pastikan ini 'kasir'
-                'status' => 'new',
-                'status_pembayaran' => 'belum_bayar',
+                'sumber_pesanan' => 'kasir', 
+                
+                // --- UBAH DUA BARIS INI ---
+                'status' => 'ready', // Ubah ke 'diproses' atau 'disiapkan' (sesuaikan dengan kata yang dipakai di panel dapurmu)
+                'status_pembayaran' => 'sudah_bayar', // Ubah ke 'sudah_bayar' atau 'lunas'
+                // --------------------------
+
                 'total_harga' => $subtotal,
                 'total_akhir' => $totalAkhir,
                 'created_at' => now(),
@@ -82,19 +90,27 @@ class PosMenu extends Component
 
             $itemsData = [];
             foreach ($this->cart as $item) {
+                // 1. Siapkan Array untuk Catatan/Opsi Tambahan
+                $opsiArray = [];
+                if (isset($item['catatan']) && trim($item['catatan']) !== '') {
+                    $opsiArray[] = trim($item['catatan']);
+                }
+
                 $itemsData[] = [
                     'pesanan_id' => $pesananId,
                     'menu_id' => $item['id'],
                     'jumlah' => $item['qty'],
                     'harga_satuan' => $item['harga'],
+                    // 2. Karena menggunakan DB::table insert, pastikan array diubah ke format JSON
+                    'opsi_tambahan' => !empty($opsiArray) ? json_encode($opsiArray) : null,
                 ];
             }
             DB::table('pesanan_items')->insert($itemsData);
-
+            
             $this->cart = [];
             $this->namaPelanggan = '';
             
-            // Redirect ke panel kasir
+
             return redirect('/kasir/pos');
 
         } catch (\Exception $e) {
@@ -122,7 +138,13 @@ class PosMenu extends Component
         $subtotal = collect($this->cart)->sum(function($item) {
             return $item['harga'] * $item['qty'];
         });
-        $pajak = $subtotal * 0.11;
+
+        // Ambil pengaturan pajak untuk ditampilkan
+        $pengaturan = DB::table('pengaturans')->first();
+        $pajakPersen = $pengaturan ? $pengaturan->pajak_persen : 11;
+        $taxRate = $pajakPersen / 100;
+        
+        $pajak = $subtotal * $taxRate;
         $totalBayar = $subtotal + $pajak - $this->diskon;
 
         return view('livewire.pos-menu', [
@@ -130,6 +152,7 @@ class PosMenu extends Component
             'menus' => $menus,
             'subtotal' => $subtotal,
             'pajak' => $pajak,
+            'pajakPersen' => $pajakPersen, // <- Kirim variabel ini agar teks di Blade bisa dinamis
             'totalBayar' => $totalBayar
         ]);
     }

@@ -4,44 +4,55 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class LoyaltyProgram extends Component
 {
     use WithPagination;
-    use WithFileUploads;
 
-    // --- VARIABEL REWARD ---
-    public $showModal = false;
+    // Variabel Aturan Poin
+    public $nominalTransaksi, $poinDidapat;
+    public $showModalRules = false;
+
+    // Variabel Katalog Voucher
+    public $showModalVoucher = false;
     public $isEditMode = false;
-    public $rewardId = null;
-    public $nama, $deskripsi, $poin_dibutuhkan, $stok, $status = 'active';
-    public $gambar, $gambarLama;
+    public $voucherId = null;
 
-    // --- VARIABEL ATURAN POIN ---
-    public $showRulesModal = false;
-    public $nominalTransaksi = 10000;
-    public $poinDidapat = 1;
+    // Field Form Katalog Voucher
+    public $judul, $deskripsi, $poin_dibutuhkan;
+    public $tipe_diskon = 'nominal'; // nominal / persen
+    public $nilai_diskon, $status = 'aktif';
+    public $berlaku_hingga;
+    public $pajakPersen;
 
-    // ==========================================
-    // LOGIKA ATURAN KONVERSI POIN
-    // ==========================================
-    public function bukaModalRules()
+    public function mount()
     {
+        // Ambil data aturan poin saat halaman dimuat
         $aturan = DB::table('aturan_poins')->first();
+        
+        // Ambil data dari tabel pengaturans secara mandiri
+        $pengaturan = DB::table('pengaturans')->first();
+        $this->pajakPersen = $pengaturan ? $pengaturan->pajak_persen : 11;
+
         if ($aturan) {
-            // Asumsi nama kolom di tabel kamu adalah nominal_transaksi & poin_didapat
-            $this->nominalTransaksi = $aturan->nominal_transaksi ?? 10000;
-            $this->poinDidapat = $aturan->poin_didapat ?? 1;
+            $this->nominalTransaksi = $aturan->point_per_rupiah;
+            $this->poinDidapat = $aturan->point_per_voucher;
+        } else {
+            $this->nominalTransaksi = 10000;
+            $this->poinDidapat = 1;
         }
-        $this->showRulesModal = true;
     }
 
+    // --- FUNGSI ATURAN POIN ---
+    public function bukaModalRules()
+    {
+        $this->showModalRules = true;
+    }
     public function tutupModalRules()
     {
-        $this->showRulesModal = false;
+        $this->showModalRules = false;
     }
 
     public function simpanRules()
@@ -49,142 +60,146 @@ class LoyaltyProgram extends Component
         $this->validate([
             'nominalTransaksi' => 'required|numeric|min:1000',
             'poinDidapat' => 'required|numeric|min:1',
+            'pajakPersen' => 'required|numeric|min:0|max:100',
         ]);
 
-        $aturan = DB::table('aturan_poins')->first();
-        
-        if ($aturan) {
-            DB::table('aturan_poins')->where('id', $aturan->id)->update([
-                'nominal_transaksi' => $this->nominalTransaksi,
-                'poin_didapat' => $this->poinDidapat,
-                'updated_at' => now(),
-            ]);
-        } else {
-            DB::table('aturan_poins')->insert([
-                'nominal_transaksi' => $this->nominalTransaksi,
-                'poin_didapat' => $this->poinDidapat,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
+        try {
+            $aturan = DB::table('aturan_poins')->first();
 
-        session()->flash('message', 'Aturan konversi poin berhasil diperbarui!');
-        $this->tutupModalRules();
+            // 1. Simpan nilai pajak ke tabel khusus pengaturans
+            DB::table('pengaturans')->updateOrInsert(
+                ['id' => 1], 
+                [
+                    'pajak_persen' => $this->pajakPersen,
+                    'updated_at' => now()
+                ]
+            );
+
+            // 2. Siapkan data murni aturan poin untuk tabel aturan_poins (tanpa kolom pajak_persen)
+            $dataToSave = [
+                'nama' => 'Aturan Poin Vivalavida',
+                'point_per_rupiah' => $this->nominalTransaksi,
+                'point_per_voucher' => $this->poinDidapat,
+                'tipe_diskon' => 'nominal', 
+                'nilai_diskon' => 0,        
+                'aktif' => 1,
+                'updated_at' => now(),
+            ];
+
+            if ($aturan) {
+                DB::table('aturan_poins')->where('id', $aturan->id)->update($dataToSave);
+            } else {
+                $dataToSave['created_at'] = now();
+                DB::table('aturan_poins')->insert($dataToSave);
+            }
+
+            session()->flash('message', 'Aturan konversi poin dan sistem berhasil diperbarui!');
+            $this->tutupModalRules();
+
+        } catch (\Exception $e) {
+            session()->flash('error', 'Gagal menyimpan aturan: ' . $e->getMessage());
+        }
     }
 
-    // ==========================================
-    // LOGIKA ITEM REWARD
-    // ==========================================
-    public function bukaModal()
+    // --- FUNGSI KATALOG VOUCHER ---
+    public function bukaModalVoucher()
     {
-        $this->resetForm();
+        $this->resetFormVoucher();
         $this->isEditMode = false;
-        $this->showModal = true;
+        $this->showModalVoucher = true;
     }
 
-    public function editReward($id)
+    public function tutupModalVoucher()
     {
-        $reward = DB::table('rewards')->where('id', $id)->first();
-        if ($reward) {
-            $this->rewardId = $reward->id;
-            $this->nama = $reward->nama;
-            $this->deskripsi = $reward->deskripsi;
-            $this->poin_dibutuhkan = $reward->poin_dibutuhkan;
-            $this->stok = $reward->stok;
-            $this->status = $reward->status;
-            $this->gambarLama = $reward->gambar;
-
-            $this->isEditMode = true;
-            $this->showModal = true;
-        }
+        $this->showModalVoucher = false;
+        $this->resetFormVoucher();
     }
 
-    public function tutupModal()
+    private function resetFormVoucher()
     {
-        $this->showModal = false;
-        $this->resetForm();
-    }
-
-    private function resetForm()
-    {
-        $this->rewardId = null;
-        $this->nama = '';
+        $this->voucherId = null;
+        $this->judul = '';
         $this->deskripsi = '';
         $this->poin_dibutuhkan = '';
-        $this->stok = '';
-        $this->status = 'active';
-        $this->gambar = null;
-        $this->gambarLama = null;
+        $this->tipe_diskon = 'nominal';
+        $this->nilai_diskon = '';
+        $this->status = 'aktif';
+        $this->berlaku_hingga = Carbon::now()->addDays(30)->format('Y-m-d');
     }
 
-    public function simpanReward()
+    public function editVoucher($id)
+    {
+        $voucher = DB::table('katalog_vouchers')->where('id', $id)->first();
+        if ($voucher) {
+            $this->voucherId = $voucher->id;
+            $this->judul = $voucher->judul;
+            $this->deskripsi = $voucher->deskripsi;
+            $this->poin_dibutuhkan = $voucher->poin_dibutuhkan;
+            $this->tipe_diskon = $voucher->tipe_diskon;
+            $this->nilai_diskon = $voucher->nilai_diskon;
+            $this->status = $voucher->status;
+            $this->berlaku_hingga = Carbon::parse($voucher->berlaku_hingga)->format('Y-m-d');
+
+            $this->isEditMode = true;
+            $this->showModalVoucher = true;
+        }
+    }
+
+    public function simpanVoucher()
     {
         $this->validate([
-            'nama' => 'required|string|max:255',
+            'judul' => 'required|string|max:255',
             'poin_dibutuhkan' => 'required|integer|min:1',
-            'stok' => 'required|integer|min:0',
-            'gambar' => 'nullable|image|max:2048',
+            'tipe_diskon' => 'required|in:nominal,persen',
+            'nilai_diskon' => 'required|numeric|min:1',
+            'berlaku_hingga' => 'required|date',
+            'status' => 'required|in:aktif,nonaktif',
         ]);
 
-        $data = [
-            'nama' => $this->nama,
-            'deskripsi' => $this->deskripsi,
-            'poin_dibutuhkan' => $this->poin_dibutuhkan,
-            'stok' => $this->stok,
-            'status' => $this->status,
-            'updated_at' => now(),
-        ];
+        try {
+            $data = [
+                'judul' => $this->judul,
+                'deskripsi' => $this->deskripsi,
+                'poin_dibutuhkan' => $this->poin_dibutuhkan,
+                'tipe_diskon' => $this->tipe_diskon,
+                'nilai_diskon' => $this->nilai_diskon,
+                'berlaku_hingga' => $this->berlaku_hingga,
+                'status' => $this->status,
+                'updated_at' => now(),
+            ];
 
-        if ($this->gambar) {
-            $data['gambar'] = $this->gambar->store('rewards', 'public');
-            if ($this->isEditMode && $this->gambarLama) Storage::disk('public')->delete($this->gambarLama);
-        } elseif ($this->isEditMode) {
-            $data['gambar'] = $this->gambarLama;
+            if ($this->isEditMode) {
+                DB::table('katalog_vouchers')->where('id', $this->voucherId)->update($data);
+                session()->flash('message', 'Katalog voucher berhasil diperbarui.');
+            } else {
+                $data['created_at'] = now();
+                DB::table('katalog_vouchers')->insert($data);
+                session()->flash('message', 'Voucher baru ditambahkan ke katalog.');
+            }
+
+            $this->tutupModalVoucher();
+
+        } catch (\Exception $e) {
+            session()->flash('error', 'Gagal menyimpan voucher: ' . $e->getMessage());
         }
-
-        if ($this->isEditMode) {
-            DB::table('rewards')->where('id', $this->rewardId)->update($data);
-            session()->flash('message', 'Item reward berhasil diperbarui.');
-        } else {
-            $data['created_at'] = now();
-            DB::table('rewards')->insert($data);
-            session()->flash('message', 'Item reward baru berhasil ditambahkan.');
-        }
-
-        $this->tutupModal();
     }
 
-    public function hapusReward($id)
+    public function hapusVoucher($id)
     {
-        $reward = DB::table('rewards')->where('id', $id)->first();
-        if ($reward && $reward->gambar) Storage::disk('public')->delete($reward->gambar);
-        
-        DB::table('rewards')->where('id', $id)->delete();
-        session()->flash('message', 'Item reward dihapus.');
+        try {
+            DB::table('katalog_vouchers')->where('id', $id)->delete();
+            session()->flash('message', 'Voucher berhasil dihapus dari katalog.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Gagal menghapus voucher.');
+        }
     }
 
-    // ==========================================
-    // RENDER HALAMAN
-    // ==========================================
     public function render()
     {
-        // 1. Ambil Aturan Poin Saat Ini
-        $aturanPoin = DB::table('aturan_poins')->first();
+        $vouchers = DB::table('katalog_vouchers')->orderBy('created_at', 'desc')->paginate(8);
+        $totalBeredar = DB::table('users')->sum('poin');
+        $katalogAktif = DB::table('katalog_vouchers')->where('status', 'aktif')->count();
 
-        // 2. Ambil Daftar Katalog Reward
-        $rewards = DB::table('rewards')->orderBy('created_at', 'desc')->get();
-        
-        // 3. Simulasi Total Poin Beredar
-        $totalPoints = DB::table('users')->sum('poin') ?? 2485100;
-        
-        // 4. Ambil Riwayat Penukaran
-        $redemptions = DB::table('penukaran_poins')
-            ->leftJoin('users', 'penukaran_poins.user_id', '=', 'users.id')
-            ->select('penukaran_poins.*', 'users.name as user_name', 'users.email')
-            ->orderBy('penukaran_poins.created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        return view('livewire.loyalty-program', compact('rewards', 'totalPoints', 'redemptions', 'aturanPoin'));
+        return view('livewire.loyalty-program', compact('vouchers', 'totalBeredar', 'katalogAktif'));
     }
 }

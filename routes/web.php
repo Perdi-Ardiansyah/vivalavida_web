@@ -13,6 +13,10 @@ use App\Livewire\CustomerManagement;
 use App\Livewire\VoucherPromoManagement;
 use App\Livewire\LoyaltyProgram;
 use App\Livewire\NewsContentManagement;
+use App\Livewire\PromoBannerManagement;
+use App\Livewire\MejaManagement;
+
+
 
 
 Route::get('/', function () {
@@ -99,7 +103,14 @@ Route::middleware('auth')->group(function () {
             return view('admin.news-wrapper');
         })->name('admin.news')->middleware(['auth', 'role:admin']);
 
+        Route::get('/admin/promos', function () {
+            return view('admin.promos-wrapper');
+        })->name('admin.promos')->middleware(['auth', 'role:admin']);
+
+
+        Route::get('/admin/mejas', function () {
+            return view('admin.mejas-wrapper');
+        })->name('admin.mejas')->middleware(['auth', 'role:admin']);
+
     });
-
-
 });
